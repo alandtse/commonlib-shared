@@ -39,6 +39,8 @@ namespace REL
 				return static_cast<T*>(pointer());
 			}
 
+			static ModuleBase* GetSingleton() { return REX::Singleton<ModuleBase>::GetSingleton(); }
+
 		private:
 			void load_segments();
 

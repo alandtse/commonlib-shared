@@ -44,6 +44,8 @@ namespace REL
 
 		std::uint64_t offset(std::uint64_t a_id) const;
 
+		static IDDB* GetSingleton() { return REX::Singleton<IDDB>::GetSingleton(); }
+
 	private:
 		class STREAM;
 		class HEADER_V2;

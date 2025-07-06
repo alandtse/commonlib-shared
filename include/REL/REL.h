@@ -12,6 +12,8 @@ namespace REL
 
 	// Primary RelocationID alias - configured by downstream
 	using RelocationID = detail::RelocationIDImpl<detail::DEFAULT_RUNTIME_COUNT>;
+
+	using ModuleBase = detail::ModuleBase;
 }
 
 // Rest of includes that depend on the aliases
