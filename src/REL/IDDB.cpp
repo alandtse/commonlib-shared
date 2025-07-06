@@ -5,6 +5,8 @@
 #include "REX/REX/HASH.h"
 #include "REX/REX/LOG.h"
 #include "REX/W32/KERNEL32.h"
+#include <algorithm>
+#include <cstring>
 
 namespace REL
 {
@@ -45,6 +47,9 @@ namespace REL
 			readin(val);
 			return val;
 		}
+
+		// Get underlying stream for text-based formats like CSV
+		stream_type& get_stream() { return _stream; }
 
 	private:
 		stream_type _stream;
@@ -155,16 +160,26 @@ namespace REL
 		if (m_loader == Loader::None)
 			REX::FAIL("Failed to determine Address Library loader!");
 
-		const auto mod = Module::GetSingleton();
+		const auto mod = detail::ModuleBase::GetSingleton();
 		const auto version = mod->version().wstring(L"-");
 		for (const auto& root : g_rootMap[m_loader]) {
-			const auto name = std::format(L"{}-{}.bin", root, version);
-			const auto path = plugin.parent_path() / name;
-			if (std::filesystem::exists(path)) {
+			// Try binary format first
+			const auto binName = std::format(L"{}-{}.bin", root, version);
+			const auto binPath = plugin.parent_path() / binName;
+			if (std::filesystem::exists(binPath)) {
 				if (m_loader == Loader::F4SE && root == L"version")
 					m_format = Format::V0;
 
-				m_path = path;
+				m_path = binPath;
+				break;
+			}
+
+			// Try CSV format as fallback
+			const auto csvName = std::format(L"{}-{}.csv", root, version);
+			const auto csvPath = plugin.parent_path() / csvName;
+			if (std::filesystem::exists(csvPath)) {
+				m_format = Format::CSV;
+				m_path = csvPath;
 				break;
 			}
 		}
@@ -174,6 +189,12 @@ namespace REL
 
 		if (m_format == Format::V0) {
 			load_v0();
+			return;
+		}
+
+		if (m_format == Format::CSV) {
+			STREAM stream(m_path, std::ios::in);
+			load_csv(stream);
 			return;
 		}
 
@@ -192,7 +213,7 @@ namespace REL
 
 	void IDDB::load_v0()
 	{
-		const auto mod = Module::GetSingleton();
+		const auto mod = detail::ModuleBase::GetSingleton();
 		const auto mapName = std::format("COMMONLIB_IDDB_OFFSETS_{}", mod->version().string("_"));
 		if (!m_mmap.create(false, m_path, mapName))
 			REX::FAIL(L"Failed to create Address Library MemoryMap!\nError: {}\nPath: {}", REX::W32::GetLastError(), m_path.wstring());
@@ -210,7 +231,7 @@ namespace REL
 		try {
 			HEADER_V2 header(a_stream);
 
-			const auto mod = Module::GetSingleton();
+			const auto mod = detail::ModuleBase::GetSingleton();
 			if (header.game_version() != mod->version()) {
 				REX::FAIL(
 					"Address Library version mismatch!\n"
@@ -247,7 +268,7 @@ namespace REL
 		try {
 			HEADER_V5 header(a_stream);
 
-			const auto mod = Module::GetSingleton();
+			const auto mod = detail::ModuleBase::GetSingleton();
 			if (header.game_version() != mod->version()) {
 				REX::FAIL(
 					"Address Library version mismatch!\n"
@@ -266,6 +287,121 @@ namespace REL
 
 		} catch (const std::system_error&) {
 			REX::FAIL(L"Failed to open Address Library file!\nPath: {}", m_path.wstring());
+		}
+	}
+
+	void IDDB::load_csv(STREAM& a_stream)
+	{
+		try {
+			std::vector<MAPPING> mappings;
+			std::string          line;
+			std::size_t          lineNumber = 0;
+			std::size_t          validEntries = 0;
+			std::size_t          invalidEntries = 0;
+			std::size_t          duplicateEntries = 0;
+			std::size_t          expectedEntries = 0;
+			std::string          versionString;
+
+			// 1. Read and skip header line (id,offset)
+			if (std::getline(a_stream.get_stream(), line)) {
+				lineNumber++;
+			}
+			// 2. Parse metadata line (entry count, version string)
+			if (std::getline(a_stream.get_stream(), line)) {
+				lineNumber++;
+				size_t commaPos = line.find(',');
+				if (commaPos != std::string::npos) {
+					std::string countStr = line.substr(0, commaPos);
+					std::string verStr = line.substr(commaPos + 1);
+					countStr.erase(0, countStr.find_first_not_of(" \t\r\n"));
+					countStr.erase(countStr.find_last_not_of(" \t\r\n") + 1);
+					verStr.erase(0, verStr.find_first_not_of(" \t\r\n"));
+					verStr.erase(verStr.find_last_not_of(" \t\r\n") + 1);
+					try {
+						expectedEntries = std::stoull(countStr);
+						versionString = verStr;
+						REX::INFO("CSV Address Library metadata: expected entries = {}, version = {}", expectedEntries, versionString);
+					} catch (const std::exception&) {
+						REX::WARN("CSV metadata line {}: Could not parse entry count or version string. Line: '{}'", lineNumber, line);
+					}
+				} else {
+					REX::WARN("CSV metadata line {}: Invalid format (missing comma). Line: '{}'", lineNumber, line);
+				}
+			}
+			// 3. Parse CSV lines: id,offset
+			while (std::getline(a_stream.get_stream(), line)) {
+				lineNumber++;
+				if (line.empty() || line[0] == '#') {
+					continue;  // Skip empty lines and comments
+				}
+				size_t commaPos = line.find(',');
+				if (commaPos == std::string::npos) {
+					REX::WARN("CSV line {}: Invalid format (missing comma). Line: '{}'", lineNumber, line);
+					invalidEntries++;
+					continue;
+				}
+				std::string idStr = line.substr(0, commaPos);
+				std::string offsetStr = line.substr(commaPos + 1);
+				idStr.erase(0, idStr.find_first_not_of(" \t\r\n"));
+				idStr.erase(idStr.find_last_not_of(" \t\r\n") + 1);
+				offsetStr.erase(0, offsetStr.find_first_not_of(" \t\r\n"));
+				offsetStr.erase(offsetStr.find_last_not_of(" \t\r\n") + 1);
+				if (idStr.empty() || offsetStr.empty()) {
+					REX::WARN("CSV line {}: Empty ID or offset value. Line: '{}'", lineNumber, line);
+					invalidEntries++;
+					continue;
+				}
+				try {
+					std::uint64_t id = std::stoull(idStr);
+					std::uint64_t offset = std::stoull(offsetStr);
+					auto          it = std::find_if(mappings.begin(), mappings.end(),
+								 [id](const MAPPING& mapping) { return mapping.id == id; });
+					if (it != mappings.end()) {
+						REX::WARN("CSV line {}: Duplicate ID {} (previous offset: 0x{:X}, new offset: 0x{:X})",
+							lineNumber, id, it->offset, offset);
+						duplicateEntries++;
+						it->offset = offset;
+					} else {
+						mappings.emplace_back(id, offset);
+						validEntries++;
+					}
+				} catch (const std::invalid_argument&) {
+					REX::WARN("CSV line {}: Invalid number format. Line: '{}'", lineNumber, line);
+					invalidEntries++;
+				} catch (const std::out_of_range&) {
+					REX::WARN("CSV line {}: Number out of range. Line: '{}'", lineNumber, line);
+					invalidEntries++;
+				}
+			}
+			if (mappings.empty()) {
+				REX::FAIL("No valid mappings found in CSV Address Library file!");
+			}
+			std::sort(mappings.begin(), mappings.end(),
+				[](const MAPPING& a_lhs, const MAPPING& a_rhs) {
+					return a_lhs.id < a_rhs.id;
+				});
+			const auto mod = detail::ModuleBase::GetSingleton();
+			const auto mapName = std::format("COMMONLIB_IDDB_OFFSETS_{}", mod->version().string("_"));
+			const auto byteSize = mappings.size() * sizeof(MAPPING);
+			if (!m_mmap.create(true, mapName, byteSize)) {
+				REX::FAIL("Failed to create CSV Address Library MemoryMap!\nError: {}", REX::W32::GetLastError());
+			}
+			std::memcpy(m_mmap.data(), mappings.data(), byteSize);
+			m_v0 = { reinterpret_cast<MAPPING*>(m_mmap.data()), mappings.size() };
+			REX::INFO("CSV Address Library loaded successfully:");
+			REX::INFO("  - Valid entries: {}", validEntries);
+			if (invalidEntries > 0) {
+				REX::WARN("  - Invalid entries: {}", invalidEntries);
+			}
+			if (duplicateEntries > 0) {
+				REX::WARN("  - Duplicate entries: {} (latest values used)", duplicateEntries);
+			}
+			REX::INFO("  - Total unique entries: {}", mappings.size());
+			if (expectedEntries > 0 && expectedEntries != mappings.size()) {
+				REX::WARN("CSV entry count mismatch: metadata = {}, actual = {}", expectedEntries, mappings.size());
+			}
+		} catch (const std::system_error&) {
+			REX::FAIL(L"Failed to open CSV Address Library file!\nPath: {}", m_path.wstring());
 		}
 	}
 
@@ -381,7 +517,7 @@ namespace REL
 
 	std::uint64_t IDDB::offset(std::uint64_t a_id) const
 	{
-		const auto mod = Module::GetSingleton();
+		const auto mod = detail::ModuleBase::GetSingleton();
 		if (std::to_underlying(m_format) < 5) {
 			if (m_v0.empty())
 				REX::FAIL("No Address Library has been loaded!");

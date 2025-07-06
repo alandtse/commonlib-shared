@@ -20,8 +20,13 @@ namespace REL
 			OBSE,
 		};
 
+		// Negative values are reserved for special/non-binary formats
+		// (e.g., CSV, JSON, XML, etc.)
 		enum class Format : std::int32_t
 		{
+			CSV = -100,  // Generic CSV format (special, not a version)
+			// Future: JSON = -101, XML = -102, etc.
+
 			None = std::numeric_limits<std::int32_t>::max(),
 			V0 = 0,
 			V1 = 1,
@@ -47,6 +52,7 @@ namespace REL
 		void load_v0();
 		void load_v2(STREAM& a_stream);
 		void load_v5(STREAM& a_stream);
+		void load_csv(STREAM& a_stream);
 		void unpack_file(STREAM& a_stream, const HEADER_V2& a_header);
 		void validate_file();
 

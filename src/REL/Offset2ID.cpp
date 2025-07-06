@@ -47,7 +47,7 @@ namespace REL
                 return a_lhs.offset < a_rhs.offset;
             });
 		if (it == _offset2id.end()) {
-			const auto mod = Module::GetSingleton();
+			const auto mod = detail::ModuleBase::GetSingleton();
 			const auto version = mod->version();
 			REX::FAIL(
 				"Failed to find Address Library ID for offset!\n"
