@@ -9,52 +9,55 @@
 
 namespace REL
 {
-	class Module :
-		public REX::Singleton<Module>
+	namespace detail
 	{
-	public:
-		Module();
-
-		[[nodiscard]] constexpr std::uintptr_t base() const noexcept { return _base; }
-		[[nodiscard]] std::wstring_view        filename() const noexcept { return _filename; }
-		[[nodiscard]] constexpr Segment        segment(Segment::Name a_segment) const noexcept { return _segments[a_segment]; }
-
-		[[nodiscard]] constexpr Version version() const noexcept
+		class ModuleBase :
+			public REX::Singleton<ModuleBase>
 		{
-			return _version;
-		}
+		public:
+			ModuleBase();
 
-		constexpr void version(Version a_version) noexcept
-		{
-			_version = a_version;
-		}
+			[[nodiscard]] constexpr std::uintptr_t base() const noexcept { return _base; }
+			[[nodiscard]] std::wstring_view        filename() const noexcept { return _filename; }
+			[[nodiscard]] constexpr Segment        segment(Segment::Name a_segment) const noexcept { return _segments[a_segment]; }
 
-		[[nodiscard]] void* pointer() const noexcept { return reinterpret_cast<void*>(base()); }
+			[[nodiscard]] constexpr Version version() const noexcept
+			{
+				return _version;
+			}
 
-		template <class T>
-		[[nodiscard]] T* pointer() const noexcept
-		{
-			return static_cast<T*>(pointer());
-		}
+			constexpr void version(Version a_version) noexcept
+			{
+				_version = a_version;
+			}
 
-	private:
-		void load_segments();
+			[[nodiscard]] void* pointer() const noexcept { return reinterpret_cast<void*>(base()); }
 
-		static constexpr std::array SEGMENTS{
-			".text"sv,
-			".interpr"sv,
-			".idata"sv,
-			".rdata"sv,
-			".data"sv,
-			".pdata"sv,
-			".tls"sv
+			template <class T>
+			[[nodiscard]] T* pointer() const noexcept
+			{
+				return static_cast<T*>(pointer());
+			}
+
+		private:
+			void load_segments();
+
+			static constexpr std::array SEGMENTS{
+				".text"sv,
+				".interpr"sv,
+				".idata"sv,
+				".rdata"sv,
+				".data"sv,
+				".pdata"sv,
+				".tls"sv
+			};
+
+			static inline std::uintptr_t _natvis{ 0 };
+
+			std::wstring                        _filename;
+			std::array<Segment, Segment::total> _segments;
+			Version                             _version;
+			std::uintptr_t                      _base{ 0 };
 		};
-
-		static inline std::uintptr_t _natvis{ 0 };
-
-		std::wstring                        _filename;
-		std::array<Segment, Segment::total> _segments;
-		Version                             _version;
-		std::uintptr_t                      _base{ 0 };
-	};
+	}  // namespace detail
 }

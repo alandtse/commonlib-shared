@@ -220,6 +220,21 @@ namespace REL
 			_impl{ a_id.address() + a_offset.offset() }
 		{}
 
+		// Constructor for RelocationID (multi-runtime support)
+		explicit Relocation(RelocationID a_id) :
+			_impl{ a_id.address() }
+		{}
+
+		// Constructor for RelocationID with offset
+		explicit Relocation(RelocationID a_id, std::ptrdiff_t a_offset) :
+			_impl{ a_id.address() + a_offset }
+		{}
+
+		// Constructor for RelocationID with Offset
+		explicit Relocation(RelocationID a_id, Offset a_offset) :
+			_impl{ a_id.address() + a_offset.offset() }
+		{}
+
 		constexpr Relocation& operator=(std::uintptr_t a_address) noexcept
 		{
 			_impl = a_address;
@@ -233,6 +248,12 @@ namespace REL
 		}
 
 		Relocation& operator=(ID a_id)
+		{
+			_impl = a_id.address();
+			return *this;
+		}
+
+		Relocation& operator=(RelocationID a_id)
 		{
 			_impl = a_id.address();
 			return *this;
@@ -374,7 +395,7 @@ namespace REL
 
 	private:
 		// clang-format off
-		[[nodiscard]] static std::uintptr_t base() { return Module::GetSingleton()->base(); }
+		[[nodiscard]] static std::uintptr_t base() { return detail::ModuleBase::GetSingleton()->base(); }
 		// clang-format on
 
 		std::uintptr_t _impl{ 0 };

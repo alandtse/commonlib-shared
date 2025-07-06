@@ -144,7 +144,7 @@ namespace REL
 				const noexcept
 			{
 				if (!this->match(a_address)) {
-					const auto mod = Module::GetSingleton();
+					const auto mod = detail::ModuleBase::GetSingleton();
 					const auto version = mod->version();
 					REX::IMPL::FAIL(
 						a_loc,

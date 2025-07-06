@@ -23,7 +23,7 @@ namespace REL
 
 		[[nodiscard]] std::uintptr_t address() const
 		{
-			const auto mod = Module::GetSingleton();
+			const auto mod = detail::ModuleBase::GetSingleton();
 			return mod->base() + offset();
 		}
 

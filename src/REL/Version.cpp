@@ -1,6 +1,8 @@
 #include "REL/Version.h"
 
 #include "REX/W32/VERSION.h"
+#include <charconv>
+#include <regex>
 
 namespace REL
 {
@@ -58,5 +60,31 @@ namespace REL
 		}
 
 		return version;
+	}
+
+	std::optional<Version> ParseVersionString(std::string_view a_versionString)
+	{
+		// Parse version string like "1.10.163" or "1.10.163.0"
+		std::regex version_regex(R"((\d+)\.(\d+)\.(\d+)(?:\.(\d+))?)");
+		std::smatch matches;
+		std::string versionStr(a_versionString);
+		
+		if (std::regex_match(versionStr, matches, version_regex)) {
+			std::array<std::uint16_t, 4> version{ 0, 0, 0, 0 };
+			
+			for (std::size_t i = 1; i < matches.size() && i <= 4; ++i) {
+				if (matches[i].matched) {
+					std::uint16_t value = 0;
+					std::from_chars(matches[i].str().data(), 
+								   matches[i].str().data() + matches[i].str().size(), 
+								   value);
+					version[i - 1] = value;
+				}
+			}
+			
+			return Version(version);
+		}
+		
+		return std::nullopt;
 	}
 }

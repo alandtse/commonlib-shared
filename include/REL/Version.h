@@ -116,6 +116,9 @@ namespace REL
 
 	[[nodiscard]] std::optional<Version> GetFileVersion(std::string_view a_filename);
 	[[nodiscard]] std::optional<Version> GetFileVersion(std::wstring_view a_filename);
+	
+	// Parse a version string (e.g., "1.10.163" or "1.10.163.0") into a Version
+	[[nodiscard]] std::optional<Version> ParseVersionString(std::string_view a_versionString);
 }
 
 template <typename T, class CharT>
