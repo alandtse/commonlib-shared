@@ -5,6 +5,70 @@
 #include "REL/IDDB.h"
 #include "REL/Module.h"
 
+/**
+ * @file ID.h
+ * @brief Multi-Runtime RelocationID System for CommonLib-Shared
+ * 
+ * This header provides the core RelocationID system that enables game libraries to support
+ * multiple runtime variants (e.g., Original, Remastered, VR editions) with automatic ID
+ * selection and smart fallback logic.
+ * 
+ * # Architecture Overview
+ * 
+ * The system uses a minimal interface pattern where the shared library handles all IDDB
+ * operations, memory mapping, and ID resolution. Game libraries need only implement one
+ * function: `get_runtime_index()` which returns the current runtime variant index.
+ * 
+ * # Usage Examples
+ * 
+ * ## Single Runtime (Traditional)
+ * ```cpp
+ * REL::ID simple_id{12345};
+ * auto addr = simple_id.address();
+ * ```
+ * 
+ * ## Multi-Runtime with Automatic Selection
+ * ```cpp
+ * // Pre-NG ID: 12345, NG ID: 67890
+ * inline constexpr REL::RelocationID PlayerCharacter_ctor{12345, 67890};
+ * auto addr = PlayerCharacter_ctor.address();  // Automatically selects correct ID
+ * ```
+ * 
+ * ## Triple Runtime with Fallback
+ * ```cpp
+ * // Original: 12345, SE: 67890, VR: 0 (fallback to Original)
+ * inline constexpr REL::RelocationID SomeFunction{12345, 67890, 0};
+ * auto addr = SomeFunction.address();  // VR will use 12345 automatically
+ * ```
+ * 
+ * # Configuration
+ * 
+ * Games configure their runtime count via build system:
+ * ```lua
+ * -- XMake configuration
+ * add_defines("REL_DEFAULT_RUNTIME_COUNT=2", {public = true})  -- Dual runtime
+ * ```
+ * 
+ * # Implementation Requirements
+ * 
+ * Game libraries must implement exactly one function in their src/REL/Module.cpp:
+ * ```cpp
+ * namespace REL::detail {
+ *     std::size_t get_runtime_index() noexcept {
+ *         // Return 0, 1, 2, etc. based on current runtime
+ *         return YourGame::detect_current_runtime();
+ *     }
+ * }
+ * ```
+ * 
+ * # Performance
+ * 
+ * - Single runtime builds (N=1): Zero overhead, compiles to direct array access
+ * - Multi-runtime builds: Single function call overhead for runtime detection
+ * - IDDB operations: Fully optimized binary search in shared library
+ * - Memory usage: Shared library code reused across all games
+ */
+
 namespace REL
 {
 	namespace detail
@@ -98,11 +162,16 @@ namespace REL
 			// Special constructor for 3-runtime mode with 2 parameters (VR fallback)
 			// Example: RelocationIDImpl(1243, 0) - VR will automatically fall back to primary
 			constexpr RelocationIDImpl(std::uint64_t a_primary, std::uint64_t a_secondary) noexcept
-				requires(N == 3)
+				requires(N == 3 || N == 4)
 			{
 				m_ids[0] = a_primary;
 				m_ids[1] = a_secondary;
-				m_ids[2] = 0;  // VR will fall back to primary via fallback logic
+				if constexpr (N >= 3) {
+					m_ids[2] = 0;  // VR will fall back to primary via fallback logic
+				}
+				if constexpr (N >= 4) {
+					m_ids[3] = 0;  // AE will fall back to primary via fallback logic
+				}
 			}
 
 			// General constructor for N runtimes
@@ -220,4 +289,8 @@ namespace REL
 		using RelocationID3 = RelocationIDImpl<3>;  // Three runtimes
 		using RelocationID4 = RelocationIDImpl<4>;  // Four runtimes (future-proof)
 	}  // namespace detail
+
+	// Bring core types into main REL namespace for compatibility
+	using ID = detail::ID;
+	using RelocationID = detail::RelocationIDImpl<detail::DEFAULT_RUNTIME_COUNT>;
 }
