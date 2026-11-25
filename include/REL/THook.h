@@ -8,77 +8,204 @@
 #include "REL/Offset.h"
 #include "REL/Trampoline.h"
 #include "REL/Utility.h"
+#include "REL/VariantID.h"
+#include "REL/VariantOffset.h"
 
 #include "REX/LOG.h"
 
 namespace REL
 {
+	namespace detail
+	{
+		[[nodiscard]] constexpr std::uintptr_t resolve_hook_address(const std::uintptr_t a_base, const std::ptrdiff_t a_diff) noexcept
+		{
+			return a_base ? a_base + a_diff : 0;
+		}
+	}
+
 	template <class>
 	class THook;
 
 	template <class R, class... T>
 	class THook<R(T...)> :
-		public FHook
+	    public FHook
 	{
 	public:
 		explicit THook(const ID a_id, const std::ptrdiff_t a_diff, R (*a_function)(T...)) :
-			FHook(a_id.address() + a_diff)
+			FHook(detail::resolve_hook_address(a_id.address(), a_diff))
 		{
-			m_function = reinterpret_cast<std::uintptr_t>(a_function);
-			Detect();
+			init_target(a_function);
 		}
 
 		explicit THook(const Offset a_offset, const std::ptrdiff_t a_diff, R (*a_function)(T...)) :
-			FHook(a_offset.address() + a_diff)
+			FHook(detail::resolve_hook_address(a_offset.address(), a_diff))
 		{
-			m_function = reinterpret_cast<std::uintptr_t>(a_function);
-			Detect();
+			init_target(a_function);
+		}
+
+		explicit THook(const RelocationID a_id, const std::ptrdiff_t a_diff, R (*a_function)(T...)) :
+			FHook(detail::resolve_hook_address(a_id.address(), a_diff))
+		{
+			init_target(a_function);
+		}
+
+		explicit THook(const RelocationID a_id, const VariantOffset a_diff, R (*a_function)(T...)) :
+			FHook(detail::resolve_hook_address(a_id.address(), static_cast<std::ptrdiff_t>(a_diff.offset())))
+		{
+			init_target(a_function);
+		}
+
+		explicit THook(const VariantID a_id, const std::ptrdiff_t a_diff, R (*a_function)(T...)) :
+			FHook(detail::resolve_hook_address(a_id.address(), a_diff))
+		{
+			init_target(a_function);
+		}
+
+		explicit THook(const VariantID a_id, const VariantOffset a_diff, R (*a_function)(T...)) :
+			FHook(detail::resolve_hook_address(a_id.address(), static_cast<std::ptrdiff_t>(a_diff.offset())))
+		{
+			init_target(a_function);
+		}
+
+		explicit THook(const VariantOffset a_offset, const std::ptrdiff_t a_diff, R (*a_function)(T...)) :
+			FHook(detail::resolve_hook_address(a_offset.address(), a_diff))
+		{
+			init_target(a_function);
 		}
 
 		explicit THook(const EHookStep a_step, const ID a_id, const std::ptrdiff_t a_diff, R (*a_function)(T...)) :
-			FHook(a_id.address() + a_diff, a_step)
+			FHook(detail::resolve_hook_address(a_id.address(), a_diff), a_step)
 		{
-			m_function = reinterpret_cast<std::uintptr_t>(a_function);
-			Detect();
+			init_target(a_function);
 		}
 
 		explicit THook(const EHookStep a_step, const Offset a_offset, const std::ptrdiff_t a_diff, R (*a_function)(T...)) :
-			FHook(a_offset.address() + a_diff, a_step)
+			FHook(detail::resolve_hook_address(a_offset.address(), a_diff), a_step)
 		{
-			m_function = reinterpret_cast<std::uintptr_t>(a_function);
-			Detect();
+			init_target(a_function);
+		}
+
+		explicit THook(const EHookStep a_step, const RelocationID a_id, const std::ptrdiff_t a_diff, R (*a_function)(T...)) :
+			FHook(detail::resolve_hook_address(a_id.address(), a_diff), a_step)
+		{
+			init_target(a_function);
+		}
+
+		explicit THook(const EHookStep a_step, const RelocationID a_id, const VariantOffset a_diff, R (*a_function)(T...)) :
+			FHook(detail::resolve_hook_address(a_id.address(), static_cast<std::ptrdiff_t>(a_diff.offset())), a_step)
+		{
+			init_target(a_function);
+		}
+
+		explicit THook(const EHookStep a_step, const VariantID a_id, const std::ptrdiff_t a_diff, R (*a_function)(T...)) :
+			FHook(detail::resolve_hook_address(a_id.address(), a_diff), a_step)
+		{
+			init_target(a_function);
+		}
+
+		explicit THook(const EHookStep a_step, const VariantID a_id, const VariantOffset a_diff, R (*a_function)(T...)) :
+			FHook(detail::resolve_hook_address(a_id.address(), static_cast<std::ptrdiff_t>(a_diff.offset())), a_step)
+		{
+			init_target(a_function);
+		}
+
+		explicit THook(const EHookStep a_step, const VariantOffset a_offset, const std::ptrdiff_t a_diff, R (*a_function)(T...)) :
+			FHook(detail::resolve_hook_address(a_offset.address(), a_diff), a_step)
+		{
+			init_target(a_function);
 		}
 
 		explicit THook(const char* a_name, const ID a_id, const std::ptrdiff_t a_diff, R (*a_function)(T...)) :
-			FHook(a_id.address() + a_diff, a_name)
+			FHook(detail::resolve_hook_address(a_id.address(), a_diff), a_name)
 		{
-			m_function = reinterpret_cast<std::uintptr_t>(a_function);
-			Detect();
+			init_target(a_function);
 		}
 
 		explicit THook(const char* a_name, const Offset a_offset, const std::ptrdiff_t a_diff, R (*a_function)(T...)) :
-			FHook(a_offset.address() + a_diff, a_name)
+			FHook(detail::resolve_hook_address(a_offset.address(), a_diff), a_name)
 		{
-			m_function = reinterpret_cast<std::uintptr_t>(a_function);
-			Detect();
+			init_target(a_function);
+		}
+
+		explicit THook(const char* a_name, const RelocationID a_id, const std::ptrdiff_t a_diff, R (*a_function)(T...)) :
+			FHook(detail::resolve_hook_address(a_id.address(), a_diff), a_name)
+		{
+			init_target(a_function);
+		}
+
+		explicit THook(const char* a_name, const RelocationID a_id, const VariantOffset a_diff, R (*a_function)(T...)) :
+			FHook(detail::resolve_hook_address(a_id.address(), static_cast<std::ptrdiff_t>(a_diff.offset())), a_name)
+		{
+			init_target(a_function);
+		}
+
+		explicit THook(const char* a_name, const VariantID a_id, const std::ptrdiff_t a_diff, R (*a_function)(T...)) :
+			FHook(detail::resolve_hook_address(a_id.address(), a_diff), a_name)
+		{
+			init_target(a_function);
+		}
+
+		explicit THook(const char* a_name, const VariantID a_id, const VariantOffset a_diff, R (*a_function)(T...)) :
+			FHook(detail::resolve_hook_address(a_id.address(), static_cast<std::ptrdiff_t>(a_diff.offset())), a_name)
+		{
+			init_target(a_function);
+		}
+
+		explicit THook(const char* a_name, const VariantOffset a_offset, const std::ptrdiff_t a_diff, R (*a_function)(T...)) :
+			FHook(detail::resolve_hook_address(a_offset.address(), a_diff), a_name)
+		{
+			init_target(a_function);
 		}
 
 		explicit THook(const char* a_name, const EHookStep a_step, const ID a_id, const std::ptrdiff_t a_diff, R (*a_function)(T...)) :
-			FHook(a_id.address() + a_diff, a_name, a_step)
+			FHook(detail::resolve_hook_address(a_id.address(), a_diff), a_name, a_step)
 		{
-			m_function = reinterpret_cast<std::uintptr_t>(a_function);
-			Detect();
+			init_target(a_function);
 		}
 
 		explicit THook(const char* a_name, const EHookStep a_step, const Offset a_offset, const std::ptrdiff_t a_diff, R (*a_function)(T...)) :
-			FHook(a_offset.address() + a_diff, a_name, a_step)
+			FHook(detail::resolve_hook_address(a_offset.address(), a_diff), a_name, a_step)
 		{
-			m_function = reinterpret_cast<std::uintptr_t>(a_function);
-			Detect();
+			init_target(a_function);
+		}
+
+		explicit THook(const char* a_name, const EHookStep a_step, const RelocationID a_id, const std::ptrdiff_t a_diff, R (*a_function)(T...)) :
+			FHook(detail::resolve_hook_address(a_id.address(), a_diff), a_name, a_step)
+		{
+			init_target(a_function);
+		}
+
+		explicit THook(const char* a_name, const EHookStep a_step, const RelocationID a_id, const VariantOffset a_diff, R (*a_function)(T...)) :
+			FHook(detail::resolve_hook_address(a_id.address(), static_cast<std::ptrdiff_t>(a_diff.offset())), a_name, a_step)
+		{
+			init_target(a_function);
+		}
+
+		explicit THook(const char* a_name, const EHookStep a_step, const VariantID a_id, const std::ptrdiff_t a_diff, R (*a_function)(T...)) :
+			FHook(detail::resolve_hook_address(a_id.address(), a_diff), a_name, a_step)
+		{
+			init_target(a_function);
+		}
+
+		explicit THook(const char* a_name, const EHookStep a_step, const VariantID a_id, const VariantOffset a_diff, R (*a_function)(T...)) :
+			FHook(detail::resolve_hook_address(a_id.address(), static_cast<std::ptrdiff_t>(a_diff.offset())), a_name, a_step)
+		{
+			init_target(a_function);
+		}
+
+		explicit THook(const char* a_name, const EHookStep a_step, const VariantOffset a_offset, const std::ptrdiff_t a_diff, R (*a_function)(T...)) :
+			FHook(detail::resolve_hook_address(a_offset.address(), a_diff), a_name, a_step)
+		{
+			init_target(a_function);
 		}
 
 		virtual bool Init() override
 		{
+			if (!m_address) {
+				REX::ERROR("{}: address is null", *this);
+				return false;
+			}
+
 			if (m_type == EHookType::None) {
 				REX::ERROR("{}: could not determine hook type", *this);
 				return false;
@@ -139,7 +266,7 @@ namespace REL
 
 			REX::TRACE("{}: Disabled", *this);
 
-			return false;
+			return true;
 		}
 
 		R operator()(T... a_args) const
@@ -149,8 +276,18 @@ namespace REL
 		}
 
 	private:
+		void init_target(R (*a_function)(T...))
+		{
+			m_function = reinterpret_cast<std::uintptr_t>(a_function);
+			Detect();
+		}
+
 		void Detect()
 		{
+			if (!m_address) {
+				return;
+			}
+
 			const auto op = reinterpret_cast<std::uint8_t*>(m_address);
 			switch (*op) {
 				case 0xE8: {
@@ -188,8 +325,8 @@ namespace REL
 		}
 
 	private:
-		std::uintptr_t m_function;
-		std::uintptr_t m_functionOld;
+		std::uintptr_t m_function{ 0 };
+		std::uintptr_t m_functionOld{ 0 };
 
 		std::vector<std::byte> m_bytes;
 		std::vector<std::byte> m_bytesOld;
@@ -202,10 +339,40 @@ namespace REL
 	THook(const Offset, const std::uint64_t, R (*)(T...)) -> THook<R(T...)>;
 
 	template <class R, class... T>
+	THook(const RelocationID, const std::ptrdiff_t, R (*)(T...)) -> THook<R(T...)>;
+
+	template <class R, class... T>
+	THook(const RelocationID, const VariantOffset, R (*)(T...)) -> THook<R(T...)>;
+
+	template <class R, class... T>
+	THook(const VariantID, const std::ptrdiff_t, R (*)(T...)) -> THook<R(T...)>;
+
+	template <class R, class... T>
+	THook(const VariantID, const VariantOffset, R (*)(T...)) -> THook<R(T...)>;
+
+	template <class R, class... T>
+	THook(const VariantOffset, const std::ptrdiff_t, R (*)(T...)) -> THook<R(T...)>;
+
+	template <class R, class... T>
 	THook(const EHookStep, const ID, const std::uint64_t, R (*)(T...)) -> THook<R(T...)>;
 
 	template <class R, class... T>
 	THook(const EHookStep, const Offset, const std::uint64_t, R (*)(T...)) -> THook<R(T...)>;
+
+	template <class R, class... T>
+	THook(const EHookStep, const RelocationID, const std::ptrdiff_t, R (*)(T...)) -> THook<R(T...)>;
+
+	template <class R, class... T>
+	THook(const EHookStep, const RelocationID, const VariantOffset, R (*)(T...)) -> THook<R(T...)>;
+
+	template <class R, class... T>
+	THook(const EHookStep, const VariantID, const std::ptrdiff_t, R (*)(T...)) -> THook<R(T...)>;
+
+	template <class R, class... T>
+	THook(const EHookStep, const VariantID, const VariantOffset, R (*)(T...)) -> THook<R(T...)>;
+
+	template <class R, class... T>
+	THook(const EHookStep, const VariantOffset, const std::ptrdiff_t, R (*)(T...)) -> THook<R(T...)>;
 
 	template <class R, class... T>
 	THook(const char*, const ID, const std::uint64_t, R (*)(T...)) -> THook<R(T...)>;
@@ -214,10 +381,40 @@ namespace REL
 	THook(const char*, const Offset, const std::uint64_t, R (*)(T...)) -> THook<R(T...)>;
 
 	template <class R, class... T>
+	THook(const char*, const RelocationID, const std::ptrdiff_t, R (*)(T...)) -> THook<R(T...)>;
+
+	template <class R, class... T>
+	THook(const char*, const RelocationID, const VariantOffset, R (*)(T...)) -> THook<R(T...)>;
+
+	template <class R, class... T>
+	THook(const char*, const VariantID, const std::ptrdiff_t, R (*)(T...)) -> THook<R(T...)>;
+
+	template <class R, class... T>
+	THook(const char*, const VariantID, const VariantOffset, R (*)(T...)) -> THook<R(T...)>;
+
+	template <class R, class... T>
+	THook(const char*, const VariantOffset, const std::ptrdiff_t, R (*)(T...)) -> THook<R(T...)>;
+
+	template <class R, class... T>
 	THook(const char*, const EHookStep, const ID, const std::uint64_t, R (*)(T...)) -> THook<R(T...)>;
 
 	template <class R, class... T>
 	THook(const char*, const EHookStep, const Offset, const std::uint64_t, R (*)(T...)) -> THook<R(T...)>;
+
+	template <class R, class... T>
+	THook(const char*, const EHookStep, const RelocationID, const std::ptrdiff_t, R (*)(T...)) -> THook<R(T...)>;
+
+	template <class R, class... T>
+	THook(const char*, const EHookStep, const RelocationID, const VariantOffset, R (*)(T...)) -> THook<R(T...)>;
+
+	template <class R, class... T>
+	THook(const char*, const EHookStep, const VariantID, const std::ptrdiff_t, R (*)(T...)) -> THook<R(T...)>;
+
+	template <class R, class... T>
+	THook(const char*, const EHookStep, const VariantID, const VariantOffset, R (*)(T...)) -> THook<R(T...)>;
+
+	template <class R, class... T>
+	THook(const char*, const EHookStep, const VariantOffset, const std::ptrdiff_t, R (*)(T...)) -> THook<R(T...)>;
 
 	template <class T>
 	using Hook [[deprecated("Renamed to 'REL::THook'")]] = THook<T>;
@@ -230,63 +427,127 @@ namespace REL
 
 	template <class R, class... T>
 	class THookVFT<R(T...)> :
-		public FHook
+	    public FHook
 	{
 	public:
 		explicit THookVFT(const ID a_id, const std::size_t a_idx, R (*a_function)(T...)) :
-			FHook(a_id.address() + (sizeof(void*) * a_idx), EHookType::VFT)
+			FHook(detail::resolve_hook_address(a_id.address(), static_cast<std::ptrdiff_t>(sizeof(void*) * a_idx)), EHookType::VFT)
 		{
-			m_function = reinterpret_cast<std::uintptr_t>(a_function);
-			m_functionOld = *reinterpret_cast<std::uintptr_t*>(m_address);
+			init_target(a_function);
 		}
 
 		explicit THookVFT(const Offset a_offset, const std::size_t a_idx, R (*a_function)(T...)) :
-			FHook(a_offset.address() + (sizeof(void*) * a_idx), EHookType::VFT)
+			FHook(detail::resolve_hook_address(a_offset.address(), static_cast<std::ptrdiff_t>(sizeof(void*) * a_idx)), EHookType::VFT)
 		{
-			m_function = reinterpret_cast<std::uintptr_t>(a_function);
-			m_functionOld = *reinterpret_cast<std::uintptr_t*>(m_address);
+			init_target(a_function);
+		}
+
+		explicit THookVFT(const RelocationID a_id, const std::size_t a_idx, R (*a_function)(T...)) :
+			FHook(detail::resolve_hook_address(a_id.address(), static_cast<std::ptrdiff_t>(sizeof(void*) * a_idx)), EHookType::VFT)
+		{
+			init_target(a_function);
+		}
+
+		explicit THookVFT(const VariantID a_id, const std::size_t a_idx, R (*a_function)(T...)) :
+			FHook(detail::resolve_hook_address(a_id.address(), static_cast<std::ptrdiff_t>(sizeof(void*) * a_idx)), EHookType::VFT)
+		{
+			init_target(a_function);
+		}
+
+		explicit THookVFT(const VariantOffset a_offset, const std::size_t a_idx, R (*a_function)(T...)) :
+			FHook(detail::resolve_hook_address(a_offset.address(), static_cast<std::ptrdiff_t>(sizeof(void*) * a_idx)), EHookType::VFT)
+		{
+			init_target(a_function);
 		}
 
 		explicit THookVFT(const EHookStep a_step, const ID a_id, const std::size_t a_idx, R (*a_function)(T...)) :
-			FHook(a_id.address() + (sizeof(void*) * a_idx), EHookType::VFT, a_step)
+			FHook(detail::resolve_hook_address(a_id.address(), static_cast<std::ptrdiff_t>(sizeof(void*) * a_idx)), EHookType::VFT, a_step)
 		{
-			m_function = reinterpret_cast<std::uintptr_t>(a_function);
-			m_functionOld = *reinterpret_cast<std::uintptr_t*>(m_address);
+			init_target(a_function);
 		}
 
 		explicit THookVFT(const EHookStep a_step, const Offset a_offset, const std::size_t a_idx, R (*a_function)(T...)) :
-			FHook(a_offset.address() + (sizeof(void*) * a_idx), EHookType::VFT, a_step)
+			FHook(detail::resolve_hook_address(a_offset.address(), static_cast<std::ptrdiff_t>(sizeof(void*) * a_idx)), EHookType::VFT, a_step)
 		{
-			m_function = reinterpret_cast<std::uintptr_t>(a_function);
-			m_functionOld = *reinterpret_cast<std::uintptr_t*>(m_address);
+			init_target(a_function);
+		}
+
+		explicit THookVFT(const EHookStep a_step, const RelocationID a_id, const std::size_t a_idx, R (*a_function)(T...)) :
+			FHook(detail::resolve_hook_address(a_id.address(), static_cast<std::ptrdiff_t>(sizeof(void*) * a_idx)), EHookType::VFT, a_step)
+		{
+			init_target(a_function);
+		}
+
+		explicit THookVFT(const EHookStep a_step, const VariantID a_id, const std::size_t a_idx, R (*a_function)(T...)) :
+			FHook(detail::resolve_hook_address(a_id.address(), static_cast<std::ptrdiff_t>(sizeof(void*) * a_idx)), EHookType::VFT, a_step)
+		{
+			init_target(a_function);
+		}
+
+		explicit THookVFT(const EHookStep a_step, const VariantOffset a_offset, const std::size_t a_idx, R (*a_function)(T...)) :
+			FHook(detail::resolve_hook_address(a_offset.address(), static_cast<std::ptrdiff_t>(sizeof(void*) * a_idx)), EHookType::VFT, a_step)
+		{
+			init_target(a_function);
 		}
 
 		explicit THookVFT(const char* a_name, const ID a_id, const std::size_t a_idx, R (*a_function)(T...)) :
-			FHook(a_id.address() + (sizeof(void*) * a_idx), a_name, EHookType::VFT)
+			FHook(detail::resolve_hook_address(a_id.address(), static_cast<std::ptrdiff_t>(sizeof(void*) * a_idx)), a_name, EHookType::VFT)
 		{
-			m_function = reinterpret_cast<std::uintptr_t>(a_function);
-			m_functionOld = *reinterpret_cast<std::uintptr_t*>(m_address);
+			init_target(a_function);
 		}
 
 		explicit THookVFT(const char* a_name, const Offset a_offset, const std::size_t a_idx, R (*a_function)(T...)) :
-			FHook(a_offset.address() + (sizeof(void*) * a_idx), a_name, EHookType::VFT)
+			FHook(detail::resolve_hook_address(a_offset.address(), static_cast<std::ptrdiff_t>(sizeof(void*) * a_idx)), a_name, EHookType::VFT)
 		{
-			m_function = reinterpret_cast<std::uintptr_t>(a_function);
-			m_functionOld = *reinterpret_cast<std::uintptr_t*>(m_address);
+			init_target(a_function);
+		}
+
+		explicit THookVFT(const char* a_name, const RelocationID a_id, const std::size_t a_idx, R (*a_function)(T...)) :
+			FHook(detail::resolve_hook_address(a_id.address(), static_cast<std::ptrdiff_t>(sizeof(void*) * a_idx)), a_name, EHookType::VFT)
+		{
+			init_target(a_function);
+		}
+
+		explicit THookVFT(const char* a_name, const VariantID a_id, const std::size_t a_idx, R (*a_function)(T...)) :
+			FHook(detail::resolve_hook_address(a_id.address(), static_cast<std::ptrdiff_t>(sizeof(void*) * a_idx)), a_name, EHookType::VFT)
+		{
+			init_target(a_function);
+		}
+
+		explicit THookVFT(const char* a_name, const VariantOffset a_offset, const std::size_t a_idx, R (*a_function)(T...)) :
+			FHook(detail::resolve_hook_address(a_offset.address(), static_cast<std::ptrdiff_t>(sizeof(void*) * a_idx)), a_name, EHookType::VFT)
+		{
+			init_target(a_function);
 		}
 
 		explicit THookVFT(const char* a_name, const EHookStep a_step, const ID a_id, const std::size_t a_idx, R (*a_function)(T...)) :
-			FHook(a_id.address() + (sizeof(void*) * a_idx), a_name, EHookType::VFT, a_step)
+			FHook(detail::resolve_hook_address(a_id.address(), static_cast<std::ptrdiff_t>(sizeof(void*) * a_idx)), a_name, EHookType::VFT, a_step)
 		{
-			m_function = reinterpret_cast<std::uintptr_t>(a_function);
-			m_functionOld = *reinterpret_cast<std::uintptr_t*>(m_address);
+			init_target(a_function);
 		}
 
 		explicit THookVFT(const char* a_name, const EHookStep a_step, const Offset a_offset, const std::size_t a_idx, R (*a_function)(T...)) :
-			FHook(a_offset.address() + (sizeof(void*) * a_idx), a_name, EHookType::VFT, a_step)
+			FHook(detail::resolve_hook_address(a_offset.address(), static_cast<std::ptrdiff_t>(sizeof(void*) * a_idx)), a_name, EHookType::VFT, a_step)
 		{
-			m_function = reinterpret_cast<std::uintptr_t>(a_function);
-			m_functionOld = *reinterpret_cast<std::uintptr_t*>(m_address);
+			init_target(a_function);
+		}
+
+		explicit THookVFT(const char* a_name, const EHookStep a_step, const RelocationID a_id, const std::size_t a_idx, R (*a_function)(T...)) :
+			FHook(detail::resolve_hook_address(a_id.address(), static_cast<std::ptrdiff_t>(sizeof(void*) * a_idx)), a_name, EHookType::VFT, a_step)
+		{
+			init_target(a_function);
+		}
+
+		explicit THookVFT(const char* a_name, const EHookStep a_step, const VariantID a_id, const std::size_t a_idx, R (*a_function)(T...)) :
+			FHook(detail::resolve_hook_address(a_id.address(), static_cast<std::ptrdiff_t>(sizeof(void*) * a_idx)), a_name, EHookType::VFT, a_step)
+		{
+			init_target(a_function);
+		}
+
+		explicit THookVFT(const char* a_name, const EHookStep a_step, const VariantOffset a_offset, const std::size_t a_idx, R (*a_function)(T...)) :
+			FHook(detail::resolve_hook_address(a_offset.address(), static_cast<std::ptrdiff_t>(sizeof(void*) * a_idx)), a_name, EHookType::VFT, a_step)
+		{
+			init_target(a_function);
 		}
 
 		virtual bool Enable() override
@@ -328,8 +589,15 @@ namespace REL
 		}
 
 	private:
-		std::uintptr_t m_function;
-		std::uintptr_t m_functionOld;
+		void init_target(R (*a_function)(T...))
+		{
+			m_function = reinterpret_cast<std::uintptr_t>(a_function);
+			m_functionOld = m_address ? *reinterpret_cast<std::uintptr_t*>(m_address) : 0;
+		}
+
+	private:
+		std::uintptr_t m_function{ 0 };
+		std::uintptr_t m_functionOld{ 0 };
 	};
 
 	template <class R, class... T>
@@ -339,10 +607,28 @@ namespace REL
 	THookVFT(const Offset, const std::size_t, R (*)(T...)) -> THookVFT<R(T...)>;
 
 	template <class R, class... T>
+	THookVFT(const RelocationID, const std::size_t, R (*)(T...)) -> THookVFT<R(T...)>;
+
+	template <class R, class... T>
+	THookVFT(const VariantID, const std::size_t, R (*)(T...)) -> THookVFT<R(T...)>;
+
+	template <class R, class... T>
+	THookVFT(const VariantOffset, const std::size_t, R (*)(T...)) -> THookVFT<R(T...)>;
+
+	template <class R, class... T>
 	THookVFT(const EHookStep, const ID, const std::size_t, R (*)(T...)) -> THookVFT<R(T...)>;
 
 	template <class R, class... T>
 	THookVFT(const EHookStep, const Offset, const std::size_t, R (*)(T...)) -> THookVFT<R(T...)>;
+
+	template <class R, class... T>
+	THookVFT(const EHookStep, const RelocationID, const std::size_t, R (*)(T...)) -> THookVFT<R(T...)>;
+
+	template <class R, class... T>
+	THookVFT(const EHookStep, const VariantID, const std::size_t, R (*)(T...)) -> THookVFT<R(T...)>;
+
+	template <class R, class... T>
+	THookVFT(const EHookStep, const VariantOffset, const std::size_t, R (*)(T...)) -> THookVFT<R(T...)>;
 
 	template <class R, class... T>
 	THookVFT(const char*, const ID, const std::size_t, R (*)(T...)) -> THookVFT<R(T...)>;
@@ -351,10 +637,28 @@ namespace REL
 	THookVFT(const char*, const Offset, const std::size_t, R (*)(T...)) -> THookVFT<R(T...)>;
 
 	template <class R, class... T>
+	THookVFT(const char*, const RelocationID, const std::size_t, R (*)(T...)) -> THookVFT<R(T...)>;
+
+	template <class R, class... T>
+	THookVFT(const char*, const VariantID, const std::size_t, R (*)(T...)) -> THookVFT<R(T...)>;
+
+	template <class R, class... T>
+	THookVFT(const char*, const VariantOffset, const std::size_t, R (*)(T...)) -> THookVFT<R(T...)>;
+
+	template <class R, class... T>
 	THookVFT(const char*, const EHookStep, const ID, const std::size_t, R (*)(T...)) -> THookVFT<R(T...)>;
 
 	template <class R, class... T>
 	THookVFT(const char*, const EHookStep, const Offset, const std::size_t, R (*)(T...)) -> THookVFT<R(T...)>;
+
+	template <class R, class... T>
+	THookVFT(const char*, const EHookStep, const RelocationID, const std::size_t, R (*)(T...)) -> THookVFT<R(T...)>;
+
+	template <class R, class... T>
+	THookVFT(const char*, const EHookStep, const VariantID, const std::size_t, R (*)(T...)) -> THookVFT<R(T...)>;
+
+	template <class R, class... T>
+	THookVFT(const char*, const EHookStep, const VariantOffset, const std::size_t, R (*)(T...)) -> THookVFT<R(T...)>;
 
 	template <class T>
 	using HookVFT [[deprecated("Renamed to 'REL::THookVFT'")]] = THookVFT<T>;
