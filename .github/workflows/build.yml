@@ -24,6 +24,9 @@ jobs:
         toolchain:
           - msvc
           - clang-cl
+        patch_safety:
+          - n
+          - y
     steps:
       - name: checkout
         uses: actions/checkout@v4
@@ -36,7 +39,7 @@ jobs:
           xmake-version: "latest"
 
       - name: config
-        run: xmake config -y --mode=${{ matrix.mode }} --toolchain=${{ matrix.toolchain }}
+        run: xmake config -y --mode=${{ matrix.mode }} --toolchain=${{ matrix.toolchain }} --commonlib_patch_safety=${{ matrix.patch_safety }}
 
       - name: build
         run: xmake build -y -vD
