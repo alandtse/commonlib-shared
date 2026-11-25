@@ -12,7 +12,7 @@
 namespace REL
 {
 	class IDDB :
-	    public REX::TSingleton<IDDB>
+		public REX::TSingleton<IDDB>
 	{
 	public:
 		enum class Loader : std::uint32_t

@@ -187,7 +187,7 @@ namespace REL
 
 template <typename T, class CharT>
 struct std::formatter<REL::VersionBase<T>, CharT> :
-    formatter<std::basic_string<CharT>, CharT>
+	formatter<std::basic_string<CharT>, CharT>
 {
 	template <class FormatContext>
 	constexpr auto format(const REL::VersionBase<T>& a_version, FormatContext& a_ctx) const

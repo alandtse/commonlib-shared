@@ -28,7 +28,7 @@ namespace REL
 
 	template <class R, class... T>
 	class THook<R(T...)> :
-	    public FHook
+		public FHook
 	{
 	public:
 		explicit THook(const ID a_id, const std::ptrdiff_t a_diff, R (*a_function)(T...)) :
@@ -431,7 +431,7 @@ namespace REL
 
 	template <class R, class... T>
 	class THookVFT<R(T...)> :
-	    public FHook
+		public FHook
 	{
 	public:
 		explicit THookVFT(const ID a_id, const std::size_t a_idx, R (*a_function)(T...)) :

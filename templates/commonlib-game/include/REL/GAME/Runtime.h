@@ -3,8 +3,8 @@
 // GAME-specific runtime detection and configuration
 // Replace "GAME" with your game name (e.g., F4, SSE, SF)
 
-#include "REX/BASE.h"
 #include "REL/Version.h"
+#include "REX/BASE.h"
 
 namespace REL
 {
@@ -16,11 +16,11 @@ namespace REL
 		{
 			// Example for single runtime game:
 			Primary = 0,
-			
+
 			// Example for dual runtime game (uncomment and customize):
 			// Original = 0,
 			// Remaster = 1,
-			
+
 			// Example for triple runtime game (uncomment and customize):
 			// Original = 0,
 			// Remaster = 1,

@@ -541,12 +541,12 @@ namespace REL
 
 			const MAPPING elem{ a_id, 0 };
 			const auto    it = std::lower_bound(
-				m_v0.begin(),
-				m_v0.end(),
-				elem,
-				[](auto&& a_lhs, auto&& a_rhs) {
-					return a_lhs.id < a_rhs.id;
-				});
+                m_v0.begin(),
+                m_v0.end(),
+                elem,
+                [](auto&& a_lhs, auto&& a_rhs) {
+                    return a_lhs.id < a_rhs.id;
+                });
 
 			if (it == m_v0.end() || it->id != a_id) {
 				REX::FAIL(

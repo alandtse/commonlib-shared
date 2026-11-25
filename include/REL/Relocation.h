@@ -102,7 +102,7 @@ namespace REL
 
 		template <class T>
 		struct meets_length_req :
-		    std::disjunction<
+			std::disjunction<
 				std::bool_constant<sizeof(T) == 1>,
 				std::bool_constant<sizeof(T) == 2>,
 				std::bool_constant<sizeof(T) == 4>,
@@ -111,7 +111,7 @@ namespace REL
 
 		template <class T>
 		struct meets_function_req :
-		    std::conjunction<
+			std::conjunction<
 				std::is_trivially_constructible<T>,
 				std::is_trivially_destructible<T>,
 				std::is_trivially_copy_assignable<T>,
@@ -121,12 +121,12 @@ namespace REL
 
 		template <class T>
 		struct meets_member_req :
-		    std::is_standard_layout<T>
+			std::is_standard_layout<T>
 		{};
 
 		template <class T, class = void>
 		struct is_x64_pod :
-		    std::true_type
+			std::true_type
 		{};
 
 		template <class T>
