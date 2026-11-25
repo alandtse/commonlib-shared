@@ -7,6 +7,9 @@
 #include "REX/LOG.h"
 #include "REX/W32/KERNEL32.h"
 
+#include <algorithm>
+#include <vector>
+
 namespace REL
 {
 	class IDDB::STREAM
@@ -175,6 +178,18 @@ namespace REL
 			}
 		}
 
+		if (m_path.empty()) {
+			for (const auto& root : g_rootMap[m_loader]) {
+				const auto name = std::format(L"{}-{}.csv", root, version);
+				const auto path = plugin.parent_path() / name;
+				if (std::filesystem::exists(path)) {
+					m_format = Format::CSV;
+					m_path = path;
+					break;
+				}
+			}
+		}
+
 		if (m_path.empty())
 			REX::FAIL(
 				"{}\n\n"
@@ -183,6 +198,11 @@ namespace REL
 				"Loader: {}\n"
 				"Game Version: {}",
 				m_name, g_loaderMap[m_loader].first, mod.GetFileVersion().string());
+
+		if (m_format == Format::CSV) {
+			load_csv();
+			return;
+		}
 
 		if (m_format == Format::V0) {
 			load_v0();
@@ -289,6 +309,96 @@ namespace REL
 		} catch (const std::system_error&) {
 			REX::FAIL(L"Failed to open Address Library file!\nPath: {}", m_path.wstring());
 		}
+	}
+
+	void IDDB::load_csv()
+	{
+		std::ifstream file(m_path);
+		if (!file.is_open()) {
+			REX::FAIL(L"Failed to open Address Library CSV file!\nPath: {}", m_path.wstring());
+		}
+
+		std::string line;
+		if (!std::getline(file, line)) {
+			REX::FAIL(L"Failed to read header from Address Library CSV file!\nPath: {}", m_path.wstring());
+		}
+
+		std::uint64_t expectedCount = 0;
+		if (std::getline(file, line)) {
+			const auto [count, versionStr] = detail::parse_csv_metadata(line);
+			expectedCount = count;
+			if (!versionStr.empty()) {
+				m_csvVersion = REL::ParseVersionString(versionStr);
+				if (!m_csvVersion) {
+					REX::WARN("Unrecognized CSV Address Library version string: '{}'"sv, versionStr);
+				}
+			}
+		}
+
+		std::vector<MAPPING> entries;
+		if (expectedCount > 0) {
+			entries.reserve(static_cast<std::size_t>(expectedCount));
+		}
+
+		std::size_t lineNumber = 2;
+		while (std::getline(file, line)) {
+			++lineNumber;
+			if (detail::trim_csv_field(line).empty()) {
+				continue;
+			}
+			const auto parsed = detail::parse_csv_line(line);
+			if (!parsed) {
+				REX::WARN("Skipping malformed CSV Address Library entry on line {}"sv, lineNumber);
+				continue;
+			}
+			entries.push_back(*parsed);
+		}
+
+		if (entries.empty()) {
+			REX::FAIL(L"No valid mappings found in Address Library CSV file!\nPath: {}", m_path.wstring());
+		}
+
+		// Stable sort + keep last duplicate so later overrides win.
+		std::stable_sort(
+			entries.begin(),
+			entries.end(),
+			[](const auto& a_lhs, const auto& a_rhs) {
+				return a_lhs.id < a_rhs.id;
+			});
+
+		std::size_t writeIdx = 0;
+		for (std::size_t readIdx = 0; readIdx < entries.size(); ++readIdx) {
+			if (readIdx + 1 < entries.size() && entries[readIdx].id == entries[readIdx + 1].id) {
+				continue;
+			}
+			entries[writeIdx++] = entries[readIdx];
+		}
+		entries.resize(writeIdx);
+
+		const auto mod = REX::FModule::GetExecutingModule();
+		const auto mapName = std::format("COMMONLIB_IDDB_OFFSETS_{}", mod.GetFileVersion().string("_"));
+		const auto byteSize = entries.size() * sizeof(MAPPING);
+		if (!m_mmap.create(true, mapName, byteSize)) {
+			REX::FAIL("Failed to create Address Library MemoryMap!\nError: {}", REX::W32::GetLastError());
+		}
+
+		m_v0 = { reinterpret_cast<MAPPING*>(m_mmap.data()), entries.size() };
+
+		if (m_mmap.is_owner()) {
+			std::copy(entries.begin(), entries.end(), m_v0.begin());
+		}
+	}
+
+	bool IDDB::is_csv_at_least_version(const std::string_view a_version) const
+	{
+		if (m_format != Format::CSV || !m_csvVersion) {
+			return false;
+		}
+		const auto target = REL::ParseVersionString(a_version);
+		if (!target) {
+			return false;
+		}
+		return *m_csvVersion >= *target;
 	}
 
 	void IDDB::unpack_file(STREAM& a_stream, const HEADER_V2& a_header)
@@ -431,12 +541,12 @@ namespace REL
 
 			const MAPPING elem{ a_id, 0 };
 			const auto    it = std::lower_bound(
-                m_v0.begin(),
-                m_v0.end(),
-                elem,
-                [](auto&& a_lhs, auto&& a_rhs) {
-                    return a_lhs.id < a_rhs.id;
-                });
+				m_v0.begin(),
+				m_v0.end(),
+				elem,
+				[](auto&& a_lhs, auto&& a_rhs) {
+					return a_lhs.id < a_rhs.id;
+				});
 
 			if (it == m_v0.end() || it->id != a_id) {
 				REX::FAIL(
