@@ -1,5 +1,7 @@
 #pragma once
 
+#include "REL/Verify.h"
+
 #include "REX/BASE.h"
 #include "REX/CAST.h"
 
@@ -72,43 +74,105 @@ namespace REL
 		[[nodiscard]] constexpr std::size_t free_size() const noexcept { return m_capacity - m_size; }
 
 		template <std::size_t N>
-		std::uintptr_t write_call(const std::uintptr_t a_src, const std::uintptr_t a_dst)
+		std::uintptr_t write_call(
+			const std::uintptr_t       a_src,
+			const std::uintptr_t       a_dst,
+			const bool                 a_skipSafetyCheck = false,
+			const std::uint64_t        a_expectedPatchHash = 0,
+			const std::source_location a_loc = std::source_location::current())
 		{
 			if constexpr (N == 5)
-				return write_call5(a_src, a_dst);
+				return write_call5(a_src, a_dst, a_skipSafetyCheck, a_expectedPatchHash, a_loc);
 			else if constexpr (N == 6)
-				return write_call6(a_src, a_dst);
+				return write_call6(a_src, a_dst, a_skipSafetyCheck, a_expectedPatchHash, a_loc);
 			else
 				static_assert(false && N, "invalid call size");
 		}
 
 		template <std::size_t N, class F>
-		std::uintptr_t write_call(const std::uintptr_t a_src, F a_dst)
+		std::uintptr_t write_call(
+			const std::uintptr_t       a_src,
+			F                          a_dst,
+			const bool                 a_skipSafetyCheck = false,
+			const std::uint64_t        a_expectedPatchHash = 0,
+			const std::source_location a_loc = std::source_location::current())
 		{
-			return write_call<N>(a_src, REX::UNRESTRICTED_CAST<std::uintptr_t>(a_dst));
+			return write_call<N>(a_src, REX::UNRESTRICTED_CAST<std::uintptr_t>(a_dst), a_skipSafetyCheck, a_expectedPatchHash, a_loc);
 		}
 
 		template <std::size_t N>
-		std::uintptr_t write_jmp(const std::uintptr_t a_src, const std::uintptr_t a_dst)
+		std::uintptr_t write_jmp(
+			const std::uintptr_t       a_src,
+			const std::uintptr_t       a_dst,
+			const bool                 a_skipSafetyCheck = false,
+			const std::uint64_t        a_expectedPatchHash = 0,
+			const std::source_location a_loc = std::source_location::current())
 		{
 			if constexpr (N == 5)
-				return write_jmp5(a_src, a_dst);
+				return write_jmp5(a_src, a_dst, a_skipSafetyCheck, a_expectedPatchHash, a_loc);
 			else if constexpr (N == 6)
-				return write_jmp6(a_src, a_dst);
+				return write_jmp6(a_src, a_dst, a_skipSafetyCheck, a_expectedPatchHash, a_loc);
 			else
 				static_assert(false && N, "invalid jmp size");
 		}
 
 		template <std::size_t N, class F>
-		std::uintptr_t write_jmp(const std::uintptr_t a_src, F a_dst)
+		std::uintptr_t write_jmp(
+			const std::uintptr_t       a_src,
+			F                          a_dst,
+			const bool                 a_skipSafetyCheck = false,
+			const std::uint64_t        a_expectedPatchHash = 0,
+			const std::source_location a_loc = std::source_location::current())
 		{
-			return write_jmp<N>(a_src, REX::UNRESTRICTED_CAST<std::uintptr_t>(a_dst));
+			return write_jmp<N>(a_src, REX::UNRESTRICTED_CAST<std::uintptr_t>(a_dst), a_skipSafetyCheck, a_expectedPatchHash, a_loc);
 		}
 
-		std::uintptr_t write_call5(const std::uintptr_t a_src, const std::uintptr_t a_dst);
-		std::uintptr_t write_call6(const std::uintptr_t a_src, const std::uintptr_t a_dst);
-		std::uintptr_t write_jmp5(const std::uintptr_t a_src, const std::uintptr_t a_dst);
-		std::uintptr_t write_jmp6(const std::uintptr_t a_src, const std::uintptr_t a_dst);
+		template <std::size_t N>
+		std::uintptr_t write_branch(
+			const std::uintptr_t       a_src,
+			const std::uintptr_t       a_dst,
+			const bool                 a_skipSafetyCheck = false,
+			const std::uint64_t        a_expectedPatchHash = 0,
+			const std::source_location a_loc = std::source_location::current())
+		{
+			return write_jmp<N>(a_src, a_dst, a_skipSafetyCheck, a_expectedPatchHash, a_loc);
+		}
+
+		template <std::size_t N, class F>
+		std::uintptr_t write_branch(
+			const std::uintptr_t       a_src,
+			F                          a_dst,
+			const bool                 a_skipSafetyCheck = false,
+			const std::uint64_t        a_expectedPatchHash = 0,
+			const std::source_location a_loc = std::source_location::current())
+		{
+			return write_jmp<N>(a_src, a_dst, a_skipSafetyCheck, a_expectedPatchHash, a_loc);
+		}
+
+		std::uintptr_t write_call5(
+			const std::uintptr_t a_src,
+			const std::uintptr_t a_dst,
+			bool                 a_skipSafetyCheck = false,
+			std::uint64_t        a_expectedPatchHash = 0,
+			std::source_location a_loc = std::source_location::current());
+		std::uintptr_t write_call6(
+			const std::uintptr_t a_src,
+			const std::uintptr_t a_dst,
+			bool                 a_skipSafetyCheck = false,
+			std::uint64_t        a_expectedPatchHash = 0,
+			std::source_location a_loc = std::source_location::current());
+		std::uintptr_t write_jmp5(
+			const std::uintptr_t a_src,
+			const std::uintptr_t a_dst,
+			bool                 a_skipSafetyCheck = false,
+			std::uint64_t        a_expectedPatchHash = 0,
+			std::source_location a_loc = std::source_location::current());
+		std::uintptr_t write_jmp6(
+			const std::uintptr_t a_src,
+			const std::uintptr_t a_dst,
+			bool                 a_skipSafetyCheck = false,
+			std::uint64_t        a_expectedPatchHash = 0,
+			std::source_location a_loc = std::source_location::current());
 
 		std::uintptr_t allocate_branch5(const std::uintptr_t a_dst);
 		std::uintptr_t allocate_branch6(const std::uintptr_t a_dst);

@@ -16,4 +16,5 @@
 #include "REL/Utility.h"
 #include "REL/VariantID.h"
 #include "REL/VariantOffset.h"
+#include "REL/Verify.h"
 #include "REL/Version.h"

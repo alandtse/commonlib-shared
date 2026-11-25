@@ -38,6 +38,11 @@ option("commonlib_random", function ()
     set_description("enable REX::TRandom support")
 end)
 
+option("commonlib_patch_safety", function ()
+    set_default(false)
+    set_description("enable hde64 patch-site boundary verification")
+end)
+
 -- add packages
 add_requires("spdlog v1.16.0", { configs = { header_only = false, wchar = true, std_format = true } })
 
@@ -84,8 +89,36 @@ target("commonlib-shared", function()
         add_defines("COMMONLIB_OPTION_RANDOM=1", { public = true })
     end
 
+    if has_config("commonlib_patch_safety") then
+        add_defines("COMMONLIB_OPTION_PATCH_SAFETY=1", { public = true })
+    end
+
+    on_load(function(target)
+        if has_config("commonlib_patch_safety") then
+            local cachedir = path.join(target:autogendir(), "minhook-v1.3.4")
+            local hde = path.join(cachedir, "minhook-1.3.4", "src", "hde")
+            if not os.isfile(path.join(cachedir, ".complete")) then
+                import("net.http")
+                import("utils.archive")
+                local arch = os.tmpfile() .. ".tar.gz"
+                try { function()
+                    http.download("https://github.com/TsudaKageyu/minhook/archive/refs/tags/v1.3.4.tar.gz", arch)
+                    assert(hash.sha256(arch) == "1aebeae4ca898330c507860acc2fca2eb335fe446a3a2b8444c3bf8b2660a14e",
+                        "MinHook v1.3.4 sha256 verification failed")
+                    archive.extract(arch, cachedir)
+                end, finally { function(ok, errors)
+                    os.tryrm(arch)
+                    if not ok then raise(errors) end
+                end } }
+                io.writefile(path.join(cachedir, ".complete"), "")
+            end
+            target:add("files", path.join(hde, "hde64.c"))
+            target:add("includedirs", hde)
+        end
+    end)
+
     -- add options
-    add_options("commonlib_ini", "commonlib_json", "commonlib_toml", "commonlib_xbyak", "commonlib_random", { public = true })
+    add_options("commonlib_ini", "commonlib_json", "commonlib_toml", "commonlib_xbyak", "commonlib_random", "commonlib_patch_safety", { public = true })
 
     -- add system links
     add_syslinks("advapi32", "bcrypt", "d3d11", "d3dcompiler", "dbghelp", "dxgi", "ole32", "shell32", "user32", "version", "ws2_32")

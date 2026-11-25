@@ -211,6 +211,10 @@ namespace REL
 				return false;
 			}
 
+#ifdef COMMONLIB_OPTION_PATCH_SAFETY
+			detail::check_patch_site_boundary(m_address, m_size, 0, std::source_location::current());
+#endif
+
 			REL::Write(std::span{ m_bytesOld }, m_address);
 
 			switch (m_type) {

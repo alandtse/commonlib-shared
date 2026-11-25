@@ -44,6 +44,9 @@
         "dependencies": [
             "xoshiro-cpp"
         ]
+    },
+    "patch-safety": {
+        "description": "enable hde64 patch-site boundary verification"
     }
   },
   "default-features": []

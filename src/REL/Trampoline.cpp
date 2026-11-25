@@ -20,8 +20,58 @@
 #	undef PAGE_EXECUTE_READWRITE
 #endif
 
+#ifdef COMMONLIB_OPTION_PATCH_SAFETY
+#	include <hde64.h>
+#	undef ERROR
+#	undef max
+#	undef MEM_COMMIT
+#	undef MEM_FREE
+#	undef MEM_RELEASE
+#	undef MEM_RESERVE
+#	undef PAGE_EXECUTE_READWRITE
+#endif
+
 namespace REL
 {
+#ifdef COMMONLIB_OPTION_PATCH_SAFETY
+	namespace detail
+	{
+		void check_patch_site_boundary(const std::uintptr_t a_src, const std::size_t a_len, const std::uint64_t a_expectedPatchHash, const std::source_location a_loc)
+		{
+			if (!a_src || a_len == 0) {
+				return;
+			}
+
+			std::size_t consumed = 0;
+			std::size_t instrCount = 0;
+			std::size_t lastLen = 0;
+
+			while (consumed < a_len) {
+				hde64s     hs{};
+				const auto len = hde64_disasm(reinterpret_cast<const void*>(a_src + consumed), &hs);
+				if (len == 0 || (hs.flags & F_ERROR) != 0) {
+					const auto file = REL::detail::basename(a_loc);
+					REX::DEBUG(
+						"patch-site safety [{}:{}]: failed to decode instruction at 0x{:X} (+0x{:X} into a "
+						"{}-byte patch at 0x{:X}) -- skipping boundary check for this patch",
+						file, a_loc.line(), a_src + consumed, consumed, a_len, a_src);
+					return;
+				}
+				consumed += len;
+				lastLen = len;
+				++instrCount;
+			}
+
+			if (consumed == a_len || instrCount == 1) {
+				return;
+			}
+
+			const auto badAddr = a_src + (consumed - lastLen);
+			REL::VerifyBytes(badAddr, lastLen, a_expectedPatchHash, "orphan tail past patch site"sv, a_loc);
+		}
+	}
+#endif
+
 	namespace Impl
 	{
 		constexpr std::size_t RoundUp(const std::size_t a_number, const std::size_t a_multiple) noexcept
@@ -156,32 +206,88 @@ namespace REL
 	}
 #endif
 
-	std::uintptr_t Trampoline::write_call5(const std::uintptr_t a_src, const std::uintptr_t a_dst)
+	std::uintptr_t Trampoline::write_call5(
+		const std::uintptr_t       a_src,
+		const std::uintptr_t       a_dst,
+		const bool                 a_skipSafetyCheck,
+		const std::uint64_t        a_expectedPatchHash,
+		const std::source_location a_loc)
 	{
+#ifdef COMMONLIB_OPTION_PATCH_SAFETY
+		if (!a_skipSafetyCheck) {
+			detail::check_patch_site_boundary(a_src, sizeof(ASM::CALL5), a_expectedPatchHash, a_loc);
+		}
+#else
+		(void)a_skipSafetyCheck;
+		(void)a_expectedPatchHash;
+		(void)a_loc;
+#endif
 		const auto original = ASM::CALL5::TARGET(a_src);
 		ASM::CALL5 assembly(a_src, allocate_branch5(a_dst));
 		REL::WriteSafeData(a_src, assembly);
 		return original;
 	}
 
-	std::uintptr_t Trampoline::write_call6(const std::uintptr_t a_src, const std::uintptr_t a_dst)
+	std::uintptr_t Trampoline::write_call6(
+		const std::uintptr_t       a_src,
+		const std::uintptr_t       a_dst,
+		const bool                 a_skipSafetyCheck,
+		const std::uint64_t        a_expectedPatchHash,
+		const std::source_location a_loc)
 	{
+#ifdef COMMONLIB_OPTION_PATCH_SAFETY
+		if (!a_skipSafetyCheck) {
+			detail::check_patch_site_boundary(a_src, sizeof(ASM::CALL6), a_expectedPatchHash, a_loc);
+		}
+#else
+		(void)a_skipSafetyCheck;
+		(void)a_expectedPatchHash;
+		(void)a_loc;
+#endif
 		const auto original = ASM::CALL6::TARGET(a_src);
 		ASM::CALL6 assembly(a_src, allocate_branch6(a_dst));
 		REL::WriteSafeData(a_src, assembly);
 		return original;
 	}
 
-	std::uintptr_t Trampoline::write_jmp5(const std::uintptr_t a_src, const std::uintptr_t a_dst)
+	std::uintptr_t Trampoline::write_jmp5(
+		const std::uintptr_t       a_src,
+		const std::uintptr_t       a_dst,
+		const bool                 a_skipSafetyCheck,
+		const std::uint64_t        a_expectedPatchHash,
+		const std::source_location a_loc)
 	{
+#ifdef COMMONLIB_OPTION_PATCH_SAFETY
+		if (!a_skipSafetyCheck) {
+			detail::check_patch_site_boundary(a_src, sizeof(ASM::JMP5), a_expectedPatchHash, a_loc);
+		}
+#else
+		(void)a_skipSafetyCheck;
+		(void)a_expectedPatchHash;
+		(void)a_loc;
+#endif
 		const auto original = ASM::JMP5::TARGET(a_src);
 		ASM::JMP5  assembly(a_src, allocate_branch5(a_dst));
 		REL::WriteSafeData(a_src, assembly);
 		return original;
 	}
 
-	std::uintptr_t Trampoline::write_jmp6(const std::uintptr_t a_src, const std::uintptr_t a_dst)
+	std::uintptr_t Trampoline::write_jmp6(
+		const std::uintptr_t       a_src,
+		const std::uintptr_t       a_dst,
+		const bool                 a_skipSafetyCheck,
+		const std::uint64_t        a_expectedPatchHash,
+		const std::source_location a_loc)
 	{
+#ifdef COMMONLIB_OPTION_PATCH_SAFETY
+		if (!a_skipSafetyCheck) {
+			detail::check_patch_site_boundary(a_src, sizeof(ASM::JMP6), a_expectedPatchHash, a_loc);
+		}
+#else
+		(void)a_skipSafetyCheck;
+		(void)a_expectedPatchHash;
+		(void)a_loc;
+#endif
 		const auto original = ASM::JMP6::TARGET(a_src);
 		ASM::JMP6  assembly(a_src, allocate_branch6(a_dst));
 		REL::WriteSafeData(a_src, assembly);

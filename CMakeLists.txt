@@ -5,6 +5,7 @@ option(COMMONLIB_JSON "enable REX::JSON settings support" OFF)
 option(COMMONLIB_TOML "enable REX::TOML settings support" OFF)
 option(COMMONLIB_XBYAK "enable xbyak support for Trampoline" OFF)
 option(COMMONLIB_RANDOM "enable REX::TRandom support" OFF)
+option(COMMONLIB_PATCH_SAFETY "enable hde64 patch-site boundary verification" OFF)
 
 project(
     commonlib-shared
@@ -39,6 +40,18 @@ if (COMMONLIB_RANDOM)
     find_package(xoshiro-cpp REQUIRED CONFIG)
 endif()
 
+if (COMMONLIB_PATCH_SAFETY)
+    enable_language(C)
+    include(FetchContent)
+    FetchContent_Declare(
+        hde64
+        URL https://github.com/TsudaKageyu/minhook/archive/refs/tags/v1.3.4.tar.gz
+        URL_HASH SHA256=1aebeae4ca898330c507860acc2fca2eb335fe446a3a2b8444c3bf8b2660a14e
+        SOURCE_SUBDIR src/hde
+    )
+    FetchContent_MakeAvailable(hde64)
+endif()
+
 include(res/cmake/sourcelist.cmake)
 
 source_group(
@@ -62,6 +75,7 @@ target_compile_definitions(
 		"$<$<BOOL:${COMMONLIB_TOML}>:COMMONLIB_OPTION_TOML=1>"
 		"$<$<BOOL:${COMMONLIB_XBYAK}>:COMMONLIB_OPTION_XBYAK=1>"
         "$<$<BOOL:${COMMONLIB_RANDOM}>:COMMONLIB_OPTION_RANDOM=1>"
+        "$<$<BOOL:${COMMONLIB_PATCH_SAFETY}>:COMMONLIB_OPTION_PATCH_SAFETY=1>"
 )
 
 target_compile_features(
@@ -118,6 +132,17 @@ target_precompile_headers(
     PRIVATE
         src/REX/PCH.h
 )
+
+if (COMMONLIB_PATCH_SAFETY)
+    target_sources("${PROJECT_NAME}" PRIVATE "${hde64_SOURCE_DIR}/src/hde/hde64.c")
+    target_include_directories("${PROJECT_NAME}" PRIVATE "${hde64_SOURCE_DIR}/src/hde")
+    set_source_files_properties(
+        "${hde64_SOURCE_DIR}/src/hde/hde64.c" PROPERTIES
+        LANGUAGE C
+        SKIP_PRECOMPILE_HEADERS ON
+        COMPILE_OPTIONS "$<$<CXX_COMPILER_ID:MSVC>:/WX->"
+    )
+endif()
 
 install(
     TARGETS "${PROJECT_NAME}"
