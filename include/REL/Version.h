@@ -2,8 +2,65 @@
 
 #include "REX/BASE.h"
 
+#ifndef REL_VERSION_SEPARATOR
+#	define REL_VERSION_SEPARATOR "."
+#endif
+
+#ifndef REL_VERSION_WSEPARATOR
+#	define REL_VERSION_WSEPARATOR L"."
+#endif
+
 namespace REL
 {
+	namespace detail
+	{
+		[[nodiscard]] constexpr std::optional<std::array<std::uint16_t, 4>> parse_version_parts(std::string_view a_version) noexcept
+		{
+			if (a_version.empty()) {
+				return std::nullopt;
+			}
+
+			std::array<std::uint16_t, 4> parts{};
+			std::size_t                  index = 0;
+			std::size_t                  pos = 0;
+
+			while (pos < a_version.size()) {
+				if (index >= parts.size()) {
+					return std::nullopt;
+				}
+
+				const auto next = a_version.find('.', pos);
+				const auto part = next == std::string_view::npos ? a_version.substr(pos) : a_version.substr(pos, next - pos);
+				if (part.empty()) {
+					return std::nullopt;
+				}
+
+				std::uint32_t value = 0;
+				for (const char ch : part) {
+					if (ch < '0' || ch > '9') {
+						return std::nullopt;
+					}
+					value = value * 10u + static_cast<std::uint32_t>(ch - '0');
+					if (value > (std::numeric_limits<std::uint16_t>::max)()) {
+						return std::nullopt;
+					}
+				}
+
+				parts[index++] = static_cast<std::uint16_t>(value);
+
+				if (next == std::string_view::npos) {
+					break;
+				}
+				pos = next + 1;
+				if (pos == a_version.size()) {
+					return std::nullopt;
+				}
+			}
+
+			return parts;
+		}
+	}
+
 	template <typename T>
 	class VersionBase
 	{
@@ -21,6 +78,15 @@ namespace REL
 		constexpr VersionBase(value_type a_v1, value_type a_v2 = 0, value_type a_v3 = 0, value_type a_v4 = 0) noexcept :
 			_impl{ a_v1, a_v2, a_v3, a_v4 }
 		{}
+
+		explicit constexpr VersionBase(std::string_view a_version)
+		{
+			const auto parts = detail::parse_version_parts(a_version);
+			if (!parts) {
+				throw std::invalid_argument("invalid version string");
+			}
+			_impl = *parts;
+		}
 
 		[[nodiscard]] constexpr reference       operator[](std::size_t a_idx) noexcept { return _impl[a_idx]; }
 		[[nodiscard]] constexpr const_reference operator[](std::size_t a_idx) const noexcept { return _impl[a_idx]; }
@@ -54,7 +120,7 @@ namespace REL
 		[[nodiscard]] constexpr value_type patch() const noexcept { return _impl[2]; }
 		[[nodiscard]] constexpr value_type build() const noexcept { return _impl[3]; }
 
-		[[nodiscard]] constexpr std::string string(const std::string_view a_separator = "."sv) const
+		[[nodiscard]] constexpr std::string string(const std::string_view a_separator = std::string_view(REL_VERSION_SEPARATOR)) const
 		{
 			std::string result;
 			for (auto&& ver : _impl) {
@@ -65,7 +131,7 @@ namespace REL
 			return result;
 		}
 
-		[[nodiscard]] constexpr std::wstring wstring(const std::wstring_view a_separator = L"."sv) const
+		[[nodiscard]] constexpr std::wstring wstring(const std::wstring_view a_separator = std::wstring_view(REL_VERSION_WSEPARATOR)) const
 		{
 			std::wstring result;
 			for (auto&& ver : _impl) {
@@ -114,16 +180,22 @@ namespace REL
 
 	using Version = VersionBase<VersionPackInfo>;
 
+	[[nodiscard]] std::optional<Version> ParseVersionString(std::string_view a_version);
 	[[nodiscard]] std::optional<Version> GetFileVersion(std::string_view a_filename);
 	[[nodiscard]] std::optional<Version> GetFileVersion(std::wstring_view a_filename);
 }
 
 template <typename T, class CharT>
-struct std::formatter<REL::VersionBase<T>, CharT> : formatter<std::string, CharT>
+struct std::formatter<REL::VersionBase<T>, CharT> :
+    formatter<std::basic_string<CharT>, CharT>
 {
 	template <class FormatContext>
 	constexpr auto format(const REL::VersionBase<T>& a_version, FormatContext& a_ctx) const
 	{
-		return formatter<std::string, CharT>::format(a_version.string(), a_ctx);
+		if constexpr (std::same_as<CharT, wchar_t>) {
+			return formatter<std::basic_string<CharT>, CharT>::format(a_version.wstring(), a_ctx);
+		} else {
+			return formatter<std::basic_string<CharT>, CharT>::format(a_version.string(), a_ctx);
+		}
 	}
 };
