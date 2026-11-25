@@ -14,6 +14,9 @@ set(SOURCES
 	include/REL/THook.h
 	include/REL/Trampoline.h
 	include/REL/Utility.h
+	include/REL/VariantID.h
+	include/REL/VariantOffset.h
+	include/REL/Verify.h
 	include/REL/Version.h
 	include/REX/BASE.h
 	include/REX/CAST.h
@@ -107,6 +110,7 @@ set(SOURCES
 	src/REL/Offset2ID.cpp
 	src/REL/Trampoline.cpp
 	src/REL/Utility.cpp
+	src/REL/Verify.cpp
 	src/REL/Version.cpp
 	src/REX/FIniSettingStore.cpp
 	src/REX/FJsonSettingStore.cpp
