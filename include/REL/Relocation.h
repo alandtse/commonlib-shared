@@ -7,6 +7,8 @@
 #include "REL/Offset.h"
 #include "REL/Trampoline.h"
 #include "REL/Utility.h"
+#include "REL/VariantID.h"
+#include "REL/VariantOffset.h"
 
 #include "REX/CAST.h"
 #include "REX/FModule.h"
@@ -100,7 +102,7 @@ namespace REL
 
 		template <class T>
 		struct meets_length_req :
-			std::disjunction<
+		    std::disjunction<
 				std::bool_constant<sizeof(T) == 1>,
 				std::bool_constant<sizeof(T) == 2>,
 				std::bool_constant<sizeof(T) == 4>,
@@ -109,7 +111,7 @@ namespace REL
 
 		template <class T>
 		struct meets_function_req :
-			std::conjunction<
+		    std::conjunction<
 				std::is_trivially_constructible<T>,
 				std::is_trivially_destructible<T>,
 				std::is_trivially_copy_assignable<T>,
@@ -119,12 +121,12 @@ namespace REL
 
 		template <class T>
 		struct meets_member_req :
-			std::is_standard_layout<T>
+		    std::is_standard_layout<T>
 		{};
 
 		template <class T, class = void>
 		struct is_x64_pod :
-			std::true_type
+		    std::true_type
 		{};
 
 		template <class T>
@@ -220,6 +222,60 @@ namespace REL
 			_impl{ a_id.address() + a_offset.offset() }
 		{}
 
+		explicit Relocation(RelocationID a_id) :
+			_impl{ a_id.address() }
+		{}
+
+		explicit Relocation(RelocationID a_id, std::ptrdiff_t a_offset)
+		{
+			const auto addr = a_id.address();
+			_impl = addr ? addr + a_offset : 0;
+		}
+
+		explicit Relocation(RelocationID a_id, Offset a_offset)
+		{
+			const auto addr = a_id.address();
+			_impl = addr ? addr + a_offset.offset() : 0;
+		}
+
+		explicit Relocation(RelocationID a_id, VariantOffset a_offset)
+		{
+			const auto addr = a_id.address();
+			_impl = addr ? addr + a_offset.offset() : 0;
+		}
+
+		explicit Relocation(VariantID a_id) :
+			_impl{ a_id.address() }
+		{}
+
+		explicit Relocation(VariantID a_id, std::ptrdiff_t a_offset)
+		{
+			const auto addr = a_id.address();
+			_impl = addr ? addr + a_offset : 0;
+		}
+
+		explicit Relocation(VariantID a_id, Offset a_offset)
+		{
+			const auto addr = a_id.address();
+			_impl = addr ? addr + a_offset.offset() : 0;
+		}
+
+		explicit Relocation(VariantID a_id, VariantOffset a_offset)
+		{
+			const auto addr = a_id.address();
+			_impl = addr ? addr + a_offset.offset() : 0;
+		}
+
+		explicit Relocation(VariantOffset a_offset) :
+			_impl{ a_offset.address() }
+		{}
+
+		explicit Relocation(VariantOffset a_offset, std::ptrdiff_t a_diff)
+		{
+			const auto addr = a_offset.address();
+			_impl = addr ? addr + a_diff : 0;
+		}
+
 		constexpr Relocation& operator=(std::uintptr_t a_address) noexcept
 		{
 			_impl = a_address;
@@ -235,6 +291,24 @@ namespace REL
 		Relocation& operator=(ID a_id)
 		{
 			_impl = a_id.address();
+			return *this;
+		}
+
+		Relocation& operator=(RelocationID a_id)
+		{
+			_impl = a_id.address();
+			return *this;
+		}
+
+		Relocation& operator=(VariantID a_id)
+		{
+			_impl = a_id.address();
+			return *this;
+		}
+
+		Relocation& operator=(VariantOffset a_offset)
+		{
+			_impl = a_offset.address();
 			return *this;
 		}
 

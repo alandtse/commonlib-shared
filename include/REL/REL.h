@@ -14,4 +14,6 @@
 #include "REL/THook.h"
 #include "REL/Trampoline.h"
 #include "REL/Utility.h"
+#include "REL/VariantID.h"
+#include "REL/VariantOffset.h"
 #include "REL/Version.h"
